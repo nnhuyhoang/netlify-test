@@ -1,0 +1,87 @@
+name: PR deployment - Sync
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+
+jobs:
+  build:
+    env:
+      APP_NAME: test
+      DEPLOY_PREVIEW_URL: ''
+      BRANCH_NAME: ''
+      BOT_NAME: 'github-actions[bot]'
+      BOT_TYPE: Bot
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set commit related info
+        run: |
+          echo "PACKAGE_CURRENT_VERSION=$(npx -c 'echo "v$npm_package_version"')" >> $GITHUB_ENV
+          echo "TAG_CURRENT_VERSION=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_ENV
+          echo "COMMIT_HASH=${GITHUB_SHA}" >> $GITHUB_ENV
+          echo "PR_LINK=${GITHUB_SERVER_URL}/nnhuyhoang/netlify-test/pull/$(echo $GITHUB_REF | awk 'BEGIN { FS = "/" } ; { print $3 }')" >> $GITHUB_ENV
+      - name: Get yarn cache
+        id: yarn-cache
+        run: 'echo "::set-output name=dir::$(yarn cache dir)"'
+      - uses: actions/cache@v1
+        with:
+          path: '${{ steps.yarn-cache.outputs.dir }}'
+          key: "${{ runner.os }}-yarn-${{ hashFiles('yarn.lock') }}"
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+      - name: Get BRANCH_NAME
+        run: |
+          echo "BRANCH_NAME=$(echo $GITHUB_HEAD_REF |  tr / -)" >> $GITHUB_ENV
+      - name: Install dependencies
+        run: |
+          yarn
+      - name: Netlify deployment
+        env:
+          NETLIFY_SITE_ID: '${{ secrets.DEV_SITE_ID }}'
+          NETLIFY_AUTH_TOKEN: '${{ secrets.NETLIFY_AUTH_TOKEN }}'
+          APP_NAME: 'test'
+          APP_STAGE: 'development'
+        run: >
+          yarn build
+      - uses: actions/github-script@0.3.0
+        with:
+          github-token: '${{secrets.GITHUB_TOKEN}}'
+          script: >
+            const comments = await github.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            })
+
+            const commitLink =
+            `https://github.com/aharooms/aharooms-com/commit/${context.sha}`
+
+            const regex = new RegExp('<!--\\s\\[${{ env.APP_NAME
+            }}-'+context.payload.pull_request.number+'\\]\\s-->\\n')
+
+            const commentsOfGithubBot = comments.data.filter(c => c.user.login
+            === '${{ env.BOT_NAME }}' && c.user.type === '${{ env.BOT_TYPE }}'
+            && regex.test(c.body))
+
+            if(commentsOfGithubBot.length === 0) {
+              const newComment = await github.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: '<!-- [${{ env.APP_NAME }}-' + `${context.payload.pull_request.number}` + '] -->\n' + 'Deploy preview for _${{ env.APP_NAME }}_ ready!<br/><br/>Built with commit ' + `${context.sha}<br/><br/>` + '${{ env.DEPLOY_PREVIEW_URL }}'
+              })
+              return JSON.stringify({commitLink, pullRequestLink: newComment.data.html_url})
+            } else {
+              const latestCommentId = commentsOfGithubBot.pop().id
+              const updatedComment = await github.issues.updateComment({
+                comment_id: latestCommentId,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: '<!-- [${{ env.APP_NAME }}-' + `${context.payload.pull_request.number}` + '] -->\n' + 'Deploy preview for _${{ env.APP_NAME }}_ ready!<br/><br/>Built with commit ' + `${context.sha}<br/><br/>` + '${{ env.DEPLOY_PREVIEW_URL }}'
+              })
+              return JSON.stringify({commitLink, pullRequestLink: updatedComment.data.html_url})
+            }
+        id: githubComment

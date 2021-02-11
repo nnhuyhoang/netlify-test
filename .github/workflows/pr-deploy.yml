@@ -47,7 +47,9 @@ jobs:
         run: >
           yarn build
 
-          echo "DEPLOY_PREVIEW_URL=$(npx netlify-cli deploy)" >> $GITHUB_ENV
+          echo "DEPLOY_PREVIEW_URL=$(npx netlify-cli deploy --message='Pull Request
+          $GITHUB_HEAD_REF'| grep "Website Draft URL" |  grep -o -E 'https?://[^
+          ]+' )" >> $GITHUB_ENV
       - uses: actions/github-script@0.3.0
         with:
           github-token: '${{secrets.GITHUB_TOKEN}}'

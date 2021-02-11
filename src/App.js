@@ -15,7 +15,7 @@ function App() {
           target="_blank"
           rel="noopener noreferrer"
         >
-          Learn React Netlify
+          Learn React Netlify deplot preview
         </a>
       </header>
     </div>

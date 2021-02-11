@@ -46,6 +46,8 @@ jobs:
           APP_STAGE: 'development'
         run: >
           yarn build
+
+          echo "DEPLOY_PREVIEW_URL=$(npx netlify-cli deploy
       - uses: actions/github-script@0.3.0
         with:
           github-token: '${{secrets.GITHUB_TOKEN}}'

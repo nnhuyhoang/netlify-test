@@ -57,7 +57,7 @@ jobs:
             })
 
             const commitLink =
-            `https://github.com/aharooms/aharooms-com/commit/${context.sha}`
+            `https://github.com/nnhuyhoang/netlify-test/commit/${context.sha}`
 
             const regex = new RegExp('<!--\\s\\[${{ env.APP_NAME
             }}-'+context.payload.pull_request.number+'\\]\\s-->\\n')
